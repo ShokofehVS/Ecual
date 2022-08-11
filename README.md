@@ -35,8 +35,7 @@ Biclustering or simultaneous clustering of both genes and conditions as a new pa
 genes and a subset of conditions with a high similarity score, which measures the coherence of the genes and conditions in the bicluster. It also returns the list of biclusters for the given data set. 
 
 ## Gene Expression Data Set
-Our input data is synthetic data sets based on bicluster models (e.g., constant, shift, scale, shift-scale, and plaid) according to a procedure developed by [Victor A. Padilha et al. (2017)](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-017-1487-1)
-taken from [Tavazoie et al. (1999)](https://pubmed.ncbi.nlm.nih.gov/10391217/) which was used in the orginal study by [Cheng and Church](https://www.researchgate.net/profile/George_Church/publication/2329589_Biclustering_of_Expression_Data/links/550c04030cf2063799394f5e.pdf);
+Our input data is synthetic data sets based on bicluster models (e.g., constant, shift, scale, shift-scale, and plaid) according to a procedure developed by [Victor A. Padilha et al. (2017)](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-017-1487-1).
 
 ## External Evaluation Measure
-To measure the similarity of encrypted biclusters with non-encrypted version, we use Clustering Error (CE) as an external evaluation measure that was proposed by [Patrikainen and Meila (2006)](http://ieeexplore.ieee.org/abstract/document/1637417/) and Campello Soft Index (CSI) by [Horta and Campello, (2014)](https://horta.github.io/biclustering/paper/manuscript.pdf);
+To measure the similarity of encrypted biclusters with non-encrypted version, we use Clustering Error (CE) as an external evaluation measure that was proposed by [Patrikainen and Meila (2006)](http://ieeexplore.ieee.org/abstract/document/1637417/) and Campello Soft Index (CSI) by [Horta and Campello, (2014)](https://horta.github.io/biclustering/paper/manuscript.pdf).
