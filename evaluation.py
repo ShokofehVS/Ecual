@@ -1,39 +1,40 @@
-from biclustlib.algorithms import ChengChurchAlgorithm
-from biclustlib.algorithms import SecuredChengChurchAlgorithm
-from biclustlib.algorithms import SecuredChengChurchAlgorithmType1
-from biclustlib.algorithms import SecuredChengChurchAlgorithmType2
-from biclustlib.algorithms import SecuredChengChurchAlgorithmType3
-from biclustlib.algorithms import SecuredChengChurchAlgorithmType4
-from biclustlib.evaluation import clustering_error
-from biclustlib.datasets import load_yeast_tavazoie
+"""
+Evaluation of both Cheng and Church Algorithm versions
+===========================
+This example shows evaluation of resulting biclulsters over synthetic data with constant model
+"""
+from biclustlib.algorithms import ChengChurchAlgorithm, ecual
+from biclustlib.evaluation import clustering_error, csi
+from biclustlib.datasets import synthetic
 import matplotlib.pyplot as plt
+import numpy as np
 
+# load synthetic data
+data, predicted = synthetic.make_const_data()
 
-data = load_yeast_tavazoie().values
+# missing value imputation suggested by Cheng and Church
+missing = np.where(data < 0.0)
+data[missing] = np.random.randint(low=0, high=800, size=len(missing[0]))
+
+# shape of data
 num_rows, num_cols = data.shape
 
+# creating an instance of the ChengChurchAlgorithm and ecual classes and running with the parameters
 cca = ChengChurchAlgorithm(num_biclusters=5, msr_threshold=300.0, multiple_node_deletion_threshold=1.2)
-secca = SecuredChengChurchAlgorithm(num_biclusters=5, msr_threshold=300.0, multiple_node_deletion_threshold=1.2)
-type1 = SecuredChengChurchAlgorithmType1(num_biclusters=5, msr_threshold=300.0, multiple_node_deletion_threshold=1.2)
-type2 = SecuredChengChurchAlgorithmType2(num_biclusters=5, msr_threshold=300.0, multiple_node_deletion_threshold=1.2)
-type3 = SecuredChengChurchAlgorithmType3(num_biclusters=5, msr_threshold=300.0, multiple_node_deletion_threshold=1.2)
-type4 = SecuredChengChurchAlgorithmType4(num_biclusters=5, msr_threshold=300.0, multiple_node_deletion_threshold=1.2)
+ecu = ecual(num_biclusters=5, msr_threshold=300.0, multiple_node_deletion_threshold=1.2)
 
-secca_alog = [type1, type2, type3, type4, secca]
-biclustering_ref = cca.run(data)
+bicluster_ref = cca.run(data)
+bicluster_pre = ecu.run(data)
 
-ce_eval = []
+# evaluation encrypted and non-encrypted Cheng and Church Algorithm
+ce_eval = clustering_error(bicluster_pre, bicluster_ref, num_rows, num_cols)
+csi_eval = csi(bicluster_pre, bicluster_ref, num_rows, num_cols)
 
-for i in range(len(secca_alog)):
-    biclustering_pre = secca_alog[i].run(data)
-    ce_eval.append(round(clustering_error(biclustering_pre, biclustering_ref, num_rows, num_cols),5))
-
-secured_alg = ["Type1", "Type2", "Type3", "Type4", "Total"]
-
-plt.bar(secured_alg, ce_eval, color='blue')
-plt.title('Comparison of SeCCA with CCA')
-plt.xlabel('Types of SeCCA')
-plt.ylabel('CE External Evaluation Measure ')
-plt.savefig('CE_final.png')
+# visualization with matplotlib
+plt.bar(ce_eval, csi_eval, color='blue')
+plt.title('Comparison of Ecual with CCA')
+plt.xlabel('Clustering Error')
+plt.ylabel('Campello Soft Index')
+plt.savefig('eval_final.png')
 plt.show()
 
