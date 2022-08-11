@@ -1,12 +1,3 @@
-"""
-    SeCCA: A Python library of privacy-preserved biclustering algorithm (Cheng and Church) with Homomorphic Encryption
-
-    Copyright (C) 2022  Shokofeh VahidianSadegh
-
-    This file is part of SeCCA.
-
-"""
-
 from ._base import BaseBiclusteringAlgorithm
 from ..models import Bicluster, Biclustering
 from sklearn.utils.validation import check_array
@@ -27,10 +18,8 @@ class ChengChurchAlgorithm(BaseBiclusteringAlgorithm):
     num_biclusters : int, default: 5
         Number of biclusters to be found.
 
-    msr_threshold : float or str, default: 'estimate'
+    msr_threshold : float, default: 300
         Maximum mean squared residue accepted (delta parameter in the original paper).
-        If 'estimate', the algorithm will calculate this threshold as:
-        (((max(data) - min(data)) ** 2) / 12) * 0.005.
 
     multiple_node_deletion_threshold : float, default: 1.2
         Scaling factor to remove multiple rows or columns (alpha parameter in the original paper).
@@ -39,7 +28,7 @@ class ChengChurchAlgorithm(BaseBiclusteringAlgorithm):
         Minimum number of dataset columns required to perform multiple column deletion.
     """
 
-    def __init__(self, num_biclusters=5, msr_threshold='estimate', multiple_node_deletion_threshold=1.2, data_min_cols=100):
+    def __init__(self, num_biclusters=5, msr_threshold=300, multiple_node_deletion_threshold=1.2, data_min_cols=100):
         self.num_biclusters = num_biclusters
         self.msr_threshold = msr_threshold
         self.multiple_node_deletion_threshold = multiple_node_deletion_threshold
@@ -59,7 +48,7 @@ class ChengChurchAlgorithm(BaseBiclusteringAlgorithm):
         num_rows, num_cols = data.shape
         min_value = np.min(data)
         max_value = np.max(data)
-        msr_thr = (((max_value - min_value) ** 2) / 12) * 0.005 if self.msr_threshold == 'estimate' else self.msr_threshold
+        msr_thr = self.msr_threshold
 
         biclusters = []
 
@@ -90,7 +79,6 @@ class ChengChurchAlgorithm(BaseBiclusteringAlgorithm):
         """Performs the single row/column deletion step (this is a direct implementation of the Algorithm 1 described in
         the original paper)"""
         msr, row_msr, col_msr = self._calculate_msr(data, rows, cols)
-
         while msr > msr_thr:
             self._single_deletion(data, rows, cols, row_msr, col_msr)
             msr, row_msr, col_msr = self._calculate_msr(data, rows, cols)
@@ -179,6 +167,7 @@ class ChengChurchAlgorithm(BaseBiclusteringAlgorithm):
 
     def _calculate_msr_col_addition(self, data, rows, cols):
         """Calculate the mean squared residues of the columns for the node addition step."""
+
         sub_data = data[rows][:, cols]
         sub_data_rows = data[rows]
 
@@ -195,6 +184,7 @@ class ChengChurchAlgorithm(BaseBiclusteringAlgorithm):
     def _calculate_msr_row_addition(self, data, rows, cols):
         """Calculate the mean squared residues of the rows and of the inverse of the rows for
         the node addition step."""
+
         sub_data = data[rows][:, cols]
         sub_data_cols = data[:, cols]
 
