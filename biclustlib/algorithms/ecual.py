@@ -1,8 +1,9 @@
 from ._base import BaseBiclusteringAlgorithm
 from ..models import Bicluster, Biclustering
 from sklearn.utils.validation import check_array
-from biclustlib.algorithms.concretefun import *
+from biclustlib.algorithms.EncryptedMsrCalculator import EncryptedMsrCalculator
 import numpy as np
+import concrete.numpy as cnp
 import time
 
 
@@ -149,37 +150,294 @@ class ecual(BaseBiclusteringAlgorithm):
 
             if np.all(rows == rows_old) and np.all(cols == cols_old):
                 stop = True
+    def cnp_datamean(self, data):
+        return np.sum(data) // data.size
 
+    def cnp_rowmean(self, data):
+        row_means = np.sum(data, axis=1) // data.shape[1]
+        return row_means.reshape((data.shape[0], 1))
+
+    def cnp_colmean(self, data):
+        return np.sum(data, axis=0) // data.shape[0]
+
+    def cnp_add(self, value1, value2):
+        return value1 + value2
+
+    def cnp_square(self, value1):
+        return value1 ** 2
+
+    def cnp_sub(self, value1, value2):
+        return np.subtract(value1, value2)
+
+    def getEnc_mean(self, inputset, data):
+        compiler = cnp.Compiler(self.cnp_datamean, {"data": "encrypted"})
+        circuit = compiler.compile(inputset)
+        data = data.astype('uint8')
+        circuit.keygen()
+        public_args = circuit.encrypt(data)
+        encrypted_datamean = circuit.run(public_args)
+        decrypted_result = circuit.decrypt(encrypted_datamean)
+        return decrypted_result
+
+    def getEnc_rowmean(self, data):
+        compiler = cnp.Compiler(self.cnp_rowmean, {"data": "encrypted"})
+        inputset = [np.random.randint(0, 30, size=(2, 2), dtype=np.uint8) for _ in range(10)]
+        circuit = compiler.compile(inputset)
+        data = data.astype('uint8')
+        circuit.keygen()
+        public_args = circuit.encrypt(data)
+        encrypted_rowmean = circuit.run(public_args)
+        decrypted_result = circuit.decrypt(encrypted_rowmean)
+        return decrypted_result
+
+    def getEnc_colmean(self, inputset, data):
+        compiler = cnp.Compiler(self.cnp_colmean, {"data": "encrypted"})
+        circuit = compiler.compile(inputset)
+        data = data.astype('uint8')
+        circuit.keygen()
+        public_args = circuit.encrypt(data)
+        encrypted_colmean = circuit.run(public_args)
+        decrypted_result = circuit.decrypt(encrypted_colmean)
+        return decrypted_result
+
+    # def getEnc_reshape(self, data, sub_data):
+    #     compiler = cnp.Compiler(self.cnp_reshape, {"data": "encrypted", "sub_data": "clear"})
+    #     inputset = [
+    #         ([np.random.randint(0, 30, size=(2, ), dtype=np.uint8) for _ in range(10)],
+    #          1)
+    #     ]
+    #     circuit = compiler.compile(inputset)
+    #     data = data.astype('uint8')
+    #     sub_data = sub_data.astype('uint8')
+    #     circuit.keygen()
+    #     public_args = circuit.encrypt(data, sub_data)
+    #     encrypted_reshape = circuit.run(public_args)
+    #     return encrypted_reshape
+    def getEnc_colmean_addition(self, data, rows):
+        compiler = cnp.Compiler(self.cnp_colmean, {"data": "encrypted"})
+        inputset = [np.random.randint(0, 30, size=(2, 2)) for _ in range(10)]
+        circuit = compiler.compile(inputset)
+        sample = data[rows]
+        # sample = sample.astype(int)
+        sample = sample.astype('uint8')
+        circuit.keygen()
+        public_args = circuit.encrypt(sample)
+        encrypted_colmean = circuit.run(public_args)
+        return encrypted_colmean
+
+    def getEnc_rowmean_addition(self, data, cols):
+        compiler = cnp.Compiler(self.cnp_colmean, {"data": "encrypted"})
+        inputset = [np.random.randint(0, 30, size=(2, 2)) for _ in range(10)]
+        circuit = compiler.compile(inputset)
+        sample = data[:, cols]
+        sample = sample.astype(int)
+        circuit.keygen()
+        public_args = circuit.encrypt(sample)
+        encrypted_colmean = circuit.run(public_args)
+        return encrypted_colmean
+
+    def getEnc_addition(self, vec1, vec2):
+        compiler = cnp.Compiler(self.cnp_add, {"value1": "encrypted", "value2": "encrypted"})
+        inputset = [
+            ((np.random.randint(0, 30, size=(2, )) for _ in range(10)), (range(100)))
+        ]
+        circuit = compiler.compile(inputset)
+        sample = [
+            (vec1, vec2),
+        ]
+        # sample = sample.astype(int)
+        circuit.keygen()
+        public_args = circuit.encrypt(sample)
+        encrypted_addition = circuit.run(public_args)
+        return encrypted_addition
+
+    def getEnc_subtraction_prt1(self, vec1, vec2):
+        compiler = cnp.Compiler(self.cnp_sub, {"value1": "encrypted", "value2": "encrypted"})
+        inputset = [
+            ([np.random.randint(0, 30, size=(2, 2), dtype=np.uint8) for _ in range(10)],
+             [np.random.randint(0, 30, size=(2, 1), dtype=np.uint8) for _ in range(10)])
+        ]
+        circuit = compiler.compile(inputset)
+        sample = [
+            (vec1, vec2)
+        ]
+        # sample = sample.astype(int)
+        circuit.keygen()
+        public_args = circuit.encrypt(sample)
+        encrypted_addition = circuit.run(public_args)
+        return encrypted_addition
+
+    def getEnc_square(self, vec1):
+        compiler = cnp.Compiler(self.cnp_square(), {"value1": "encrypted"})
+        inputset = [np.random.randint(0, 30, size=(2, 2)) for _ in range(10)]
+        circuit = compiler.compile(inputset)
+        sample = [vec1]
+        # sample = sample.astype(int)
+        circuit.keygen()
+        public_args = circuit.encrypt(sample)
+        encrypted_square = circuit.run(public_args)
+        return encrypted_square
+
+    def getEnc_msr(self, squared_residues):
+        compiler = cnp.Compiler(self.cnp_datamean, {"data": "encrypted"})
+        inputset = [np.random.randint(0, 30, size=(2, 2)) for _ in range(10)]
+        circuit = compiler.compile(inputset)
+        sample = squared_residues
+        sample = sample.astype(int)
+        circuit.keygen()
+        public_args = circuit.encrypt(sample)
+        encrypted_datamean = circuit.run(public_args)
+        return encrypted_datamean
+
+    def getEnc_rowmsr(self, squared_residues):
+        compiler = cnp.Compiler(self.cnp_rowmean, {"data": "encrypted"})
+        inputset = [np.random.randint(0, 30, size=(2, 2)) for _ in range(10)]
+        circuit = compiler.compile(inputset)
+        sample = squared_residues
+        sample= sample.astype(int)
+        circuit.keygen()
+        public_args = circuit.encrypt(sample)
+        encrypted_rowmean = circuit.run(public_args)
+        return encrypted_rowmean
+
+    def getEnc_colmsr(self, squared_residues):
+        compiler = cnp.Compiler(self.cnp_colmean, {"data": "encrypted"})
+        inputset = [np.random.randint(0, 30, size=(2, 2)) for _ in range(10)]
+        circuit = compiler.compile(inputset)
+        sample = squared_residues
+        sample = sample.astype(int)
+        circuit.keygen()
+        public_args = circuit.encrypt(sample)
+        encrypted_colmean = circuit.run(public_args)
+        return encrypted_colmean
+
+    @cnp.compiler({"data": "encrypted"})
+    def msr_calculator(data):
+        data_mean = np.sum(data) // data.size
+        row_means = np.sum(data, axis=1, keepdims=True) // data.shape[1]
+        col_means = np.sum(data, axis=0) // data.shape[0]
+
+        residues_p1 = data + (-row_means)
+        residues_p2 = col_means + data_mean
+        residues = residues_p1 + (-residues_p2)
+
+        squared_residues = residues ** 2
+        return np.sum(squared_residues) // squared_residues.size
+
+    @cnp.compiler({"data": "encrypted"})
+    def row_msr_calculator(data):
+        data_mean = np.sum(data) // data.size
+        row_means = np.sum(data, axis=1, keepdims=True) // data.shape[1]
+        col_means = np.sum(data, axis=0) // data.shape[0]
+
+        residues_p1 = data + (-row_means)
+        residues_p2 = col_means + data_mean
+        residues = residues_p1 + (-residues_p2)
+
+        squared_residues = residues ** 2
+        return np.sum(squared_residues, axis=1) // squared_residues.shape[1]
+
+    @cnp.compiler({"data": "encrypted"})
+    def column_msr_calculator(data):
+        data_mean = np.sum(data) // data.size
+        row_means = np.sum(data, axis=1, keepdims=True) // data.shape[1]
+        col_means = np.sum(data, axis=0) // data.shape[0]
+
+        residues_p1 = data + (-row_means)
+        residues_p2 = col_means + data_mean
+        residues = residues_p1 + (-residues_p2)
+
+        squared_residues = residues ** 2
+        return np.sum(squared_residues, axis=0) // squared_residues.shape[0]
+
+    # @cnp.compiler({"data": "encrypted"})
     def _calculate_msr(self, data, rows, cols):
         """Calculate the mean squared residues of the rows, of the columns and of the full data matrix."""
-        sub_data = data[rows][:, cols]
-
-        data_mean = np.mean(sub_data)
-        row_means = np.mean(sub_data, axis=1)
-        col_means = np.mean(sub_data, axis=0)
-
-        residues = sub_data - row_means[:, np.newaxis] - col_means + data_mean
-        squared_residues = residues * residues
-
-        msr = np.mean(squared_residues)
-        row_msr = np.mean(squared_residues, axis=1)
-        col_msr = np.mean(squared_residues, axis=0)
+        #
+        # inputset = [np.random.randint(0, 5, size=(2, 2)) for _ in range(10)]
+        sample = data[rows][:, cols]
+        sample = sample.astype('uint8')
+        #
+        # msr_circuit: cnp.Circuit
+        # row_msr_circuit: cnp.Circuit
+        # column_msr_circuit: cnp.Circuit
+        #
+        # msr_circuit = self.msr_calculator.compile(inputset)
+        # row_msr_circuit = self.row_msr_calculator.compile(inputset)
+        # column_msr_circuit = self.column_msr_calculator.compile(inputset)
+        #
+        # return(
+        #     msr_circuit.encrypt_run_decrypt(input),
+        #     row_msr_circuit.encrypt_run_decrypt(input),
+        #     column_msr_circuit.encrypt_run_decrypt(input),
+        # )
+        inputset = [np.random.randint(0, 5, size=(2, 2)) for _ in range(10)]
+        msrcalculator = EncryptedMsrCalculator(inputset)
+        msr = msrcalculator.msr_circuit.encrypt_run_decrypt(sample)
+        row_msr = msrcalculator.row_msr_circuit.encrypt_run_decrypt(sample)
+        col_msr = msrcalculator.column_msr_circuit.encrypt_run_decrypt(sample)
 
         return msr, row_msr, col_msr
+
+
+        # msrcalculator.evaluate(sample)
+        # return msr, row_msr, col_msr
+
+        # inputset = [np.random.randint(0, 30, size=(2, 2)) for _ in range(10)]
+        # data_mean = np.mean(sub_data)
+        # row_means = np.mean(sub_data, axis=1)
+        # col_means = np.mean(sub_data, axis=0)
+        # row_means = row_means[:, np.newaxis]
+        # data_mean = self.getEnc_mean(inputset, sub_data)
+        #
+        # row_means = self.getEnc_rowmean(sub_data)
+        #
+        # col_means = self.getEnc_colmean(inputset, sub_data)
+
+        # residue_prt1 = self.getEnc_subtraction_prt1(sub_data, row_means)
+        # residue_prt2 = self.getEnc_addition(col_means, data_mean)
+        # residues = self.getEnc_subtraction(residue_prt1, residue_prt2)
+
+        # squared_residues = residues * residues
+        # squared_residues = residues ** 2
+        # squared_residues = residues ** 2
+        #
+        # # msr = np.mean(squared_residues)
+        # msr = self.getEnc_msr(squared_residues)
+        # # row_msr = np.mean(squared_residues, axis=1)
+        # row_msr = self.getEnc_rowmsr(squared_residues)
+        # # col_msr = np.mean(squared_residues, axis=0)
+        # col_msr = self.getEnc_colmsr(squared_residues)
+
 
     def _calculate_msr_col_addition(self, data, rows, cols):
         """Calculate the mean squared residues of the columns for the node addition step."""
 
-        sub_data = data[rows][:, cols]
+        # sub_data = data[rows][:, cols]
+
+        # cf = concretefun()
+        # compiler = hnp.NPFHECompiler(cf.submatrix, {"x": "encrypted"})
+        # inputset = [(col_means.astype(dtype=np.uint16), data_mean.astype(dtype=np.uint16))]
+        # circuit = compiler.compile_on_inputset(inputset)
+        # print(compiler)
+        # print(circuit.encrypt_run_decrypt([(col_means.astype(dtype=np.uint16), data_mean.astype(dtype=np.uint16))]))
+
         sub_data_rows = data[rows]
 
-        data_mean = np.mean(sub_data)
-        row_means = np.mean(sub_data, axis=1)
-        col_means = np.mean(sub_data_rows, axis=0)
+        # data_mean = np.mean(sub_data)
+        data_mean = self.getEnc_mean(data,rows,cols)
+        # row_means = np.mean(sub_data, axis=1)
+        row_means = self.getEnc_rowmean(data,rows,cols)
+        # col_means = np.mean(sub_data_rows, axis=0)
+        col_means = self.getEnc_colmean_addition(data,rows)
 
+
+        # col_residues = sub_data_rows - row_means[:, np.newaxis] - col_means + data_mean
         col_residues = sub_data_rows - row_means[:, np.newaxis] - col_means + data_mean
-        col_squared_residues = col_residues * col_residues
-        col_msr = np.mean(col_squared_residues, axis=0)
+        # col_squared_residues = col_residues * col_residues
+        col_squared_residues = col_residues ** 2
+        # col_msr = np.mean(col_squared_residues, axis=0)
+        col_msr = self.getEnc_colmsr(col_squared_residues)
 
         return col_msr
 
@@ -190,17 +448,22 @@ class ecual(BaseBiclusteringAlgorithm):
         sub_data = data[rows][:, cols]
         sub_data_cols = data[:, cols]
 
-        data_mean = np.mean(sub_data)
-        row_means = np.mean(sub_data_cols, axis=1)
-        col_means = np.mean(sub_data, axis=0)
+        # data_mean = np.mean(sub_data)
+        data_mean = self.getEnc_mean(data,rows,cols)
+        # row_means = np.mean(sub_data_cols, axis=1)
+        row_means = self.getEnc_rowmean_addition(data,cols)
+        # col_means = np.mean(sub_data, axis=0)
+        col_means = self.getEnc_colmean(data,rows,cols)
 
         row_residues = sub_data_cols - row_means[:, np.newaxis] - col_means + data_mean
-        row_squared_residues = row_residues * row_residues
-        row_msr = np.mean(row_squared_residues, axis=1)
+        # row_squared_residues = row_residues * row_residues
+        row_squared_residues = row_residues ** 2
+        row_msr = self.getEnc_rowmsr(row_squared_residues)
 
         inverse_residues = -sub_data_cols + row_means[:, np.newaxis] - col_means + data_mean
-        row_inverse_squared_residues = inverse_residues * inverse_residues
-        row_inverse_msr = np.mean(row_inverse_squared_residues, axis=1)
+        row_inverse_squared_residues = inverse_residues ** 2
+        # row_inverse_msr = np.mean(row_inverse_squared_residues, axis=1)
+        row_inverse_msr = self.getEnc_rowmsr(row_inverse_squared_residues)
 
         return row_msr, row_inverse_msr
 
