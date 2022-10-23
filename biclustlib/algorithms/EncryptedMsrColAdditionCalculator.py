@@ -3,7 +3,8 @@ import numpy as np
 
 class EncryptedMsrColAdditionCalculator:
 
-    @cnp.circuit({"data": "encrypted", "data_rows": "encrypted"}, verbose=True)
+    configuration = cnp.Configuration(global_p_error=3 / 100_000, verbose=True)
+    @cnp.circuit({"data": "encrypted", "data_rows": "encrypted"}, configuration)
     def squared_residues(data: cnp.tensor[cnp.uint16, 10, 5], data_rows: cnp.tensor[cnp.uint16, 10, 5]):
         data_mean = np.sum(data) // data.size
         row_means = np.sum(data, axis=1, keepdims=True) // data.shape[1]
@@ -16,7 +17,7 @@ class EncryptedMsrColAdditionCalculator:
         col_squared_residues = col_residues ** 2
         return col_squared_residues
 
-    @cnp.circuit({"col_squared_residues": "encrypted"}, verbose=True)
+    @cnp.circuit({"col_squared_residues": "encrypted"}, configuration)
     def msr_column_addition_calculator(col_squared_residues: cnp.tensor[cnp.uint16, 10, 5]):
         col_msr = np.sum(col_squared_residues, axis=0) // col_squared_residues.shape[0]
         return col_msr
