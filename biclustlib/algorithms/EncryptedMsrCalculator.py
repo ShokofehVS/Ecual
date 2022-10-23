@@ -1,7 +1,7 @@
 import math
 import concrete.numpy as cnp
 import numpy as np
-from biclustlib.algorithms.concretefun import concretefun
+
 class EncryptedMsrCalculator():
 
     @cnp.circuit({"data": "encrypted"})
