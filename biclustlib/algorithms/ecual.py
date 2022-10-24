@@ -4,12 +4,13 @@ from sklearn.utils.validation import check_array
 from biclustlib.algorithms.EncryptedMsrCalculator import EncryptedMsrCalculator
 from biclustlib.algorithms.EncryptedMsrColAdditionCalculator import EncryptedMsrColAdditionCalculator
 from biclustlib.algorithms.EncryptedMsrRowAdditionCalculator import EncryptedMsrRowAdditionCalculator
-from biclustlib.algorithms.SingleNodeDeletion import SingleNodeDeletion
 from biclustlib.algorithms.rows2remove import rows2remove
+from biclustlib.algorithms.cols2remove import cols2remove
+from biclustlib.algorithms.cols2add import cols2add
+from biclustlib.algorithms.rowsaddition import rowsaddition
 import numpy as np
 import concrete.numpy as cnp
 import time
-
 
 
 class ecual(BaseBiclusteringAlgorithm):
@@ -86,6 +87,7 @@ class ecual(BaseBiclusteringAlgorithm):
         """Performs the single row/column deletion step (this is a direct implementation of the Algorithm 1 described in
         the original paper)"""
         msr, row_msr, col_msr = self._calculate_msr(data, rows, cols)
+
         # Without FHE
         while msr > msr_thr:
             self._single_deletion(data, rows, cols, row_msr, col_msr)
@@ -126,15 +128,29 @@ class ecual(BaseBiclusteringAlgorithm):
             cols_old = np.copy(cols)
             rows_old = np.copy(rows)
 
+            # without FHE
             row_indices = np.nonzero(rows)[0]
             rows2remove = row_indices[np.where(row_msr > self.multiple_node_deletion_threshold * msr)]
             rows[rows2remove] = False
 
+            # with FHE
+            """multiple_row_deletion = rows2remove()
+            rows = multiple_row_deletion.multiple_rows_deletion.encrypt_run_decrypt(data.astype('uint16'),
+                                                                                     row_msr.astype('uint16'),
+                                                                                     msr.astype('uint16'))
+"""
             if len(cols) >= self.data_min_cols:
                 msr, row_msr, col_msr = self._calculate_msr(data, rows, cols)
+                # without FHE
                 col_indices = np.nonzero(cols)[0]
                 cols2remove = col_indices[np.where(col_msr > self.multiple_node_deletion_threshold * msr)]
                 cols[cols2remove] = False
+
+                # with FHE
+                """multiple_col_deletion = cols2remove()
+                cols = multiple_col_deletion.multiple_cols_deletion.encrypt_run_decrypt(data.astype('uint16'),
+                                                                                     col_msr.astype('uint16'),
+                                                                                     msr.astype('uint16'))"""
 
             msr, row_msr, col_msr = self._calculate_msr(data, rows, cols)
 
@@ -154,13 +170,30 @@ class ecual(BaseBiclusteringAlgorithm):
 
             msr, _, _ = self._calculate_msr(data, rows, cols)
             col_msr = self._calculate_msr_col_addition(data, rows, cols)
+
+            #without FHE
             cols2add = np.where(col_msr <= msr)[0]
             cols[cols2add] = True
 
+            #With FHE
+            """multiple_col_addition = cols2add()
+            cols = multiple_col_addition.cols_addition.encrypt_run_decrypt(data.astype('uint16'))
+"""
             msr, _, _ = self._calculate_msr(data, rows, cols)
             row_msr, row_inverse_msr = self._calculate_msr_row_addition(data, rows, cols)
+
+            #Without FHE
             rows2add = np.where(np.logical_or(row_msr <= msr, row_inverse_msr <= msr))[0]
             rows[rows2add] = True
+
+            #With FHE
+            """multiple_row_addition = rowsaddition(data.astype('uint16'), row_msr.astype('uint16'), row_inverse_msr.astype('uint16'), msr.astype('uint16'))
+            rows = multiple_row_addition.multiple_rows_addition.encrypt_run_decrypt(self)"""
+            """multiple_row = rowsaddition()
+            data = data.astype('uint16')
+            row_msr = row_msr.astype('uint16')
+            msr = msr.astype('uint16')
+            rows = multiple_row.multiple_rows_deletion.encrypt_run_decrypt(data, row_msr, msr)"""
 
             if np.all(rows == rows_old) and np.all(cols == cols_old):
                 stop = True
@@ -168,22 +201,18 @@ class ecual(BaseBiclusteringAlgorithm):
     def _calculate_msr(self, data, rows, cols):
         """Calculate the mean squared residues of the rows, of the columns and of the full data matrix."""
 
-        #Calculate MSR homomorphically
-        """ sample = data[rows][:, cols]
-        sample = sample.astype('uint8')
+        #With FHE
+        sample = data[rows][:, cols]
+        sample = sample.astype('uint16')
 
-        inputset = [np.random.randint(0, 5, size=(300, 50)) for _ in range(10)]
+        msrcalculator = EncryptedMsrCalculator()
+        squared_residues = msrcalculator.squared_residues.encrypt_run_decrypt(sample)
+        msr = msrcalculator.msr_calculator.encrypt_run_decrypt(squared_residues)
+        row_msr = msrcalculator.row_msr_calculator.encrypt_run_decrypt(squared_residues)
+        col_msr = msrcalculator.column_msr_calculator.encrypt_run_decrypt(squared_residues)
 
-        msrcalculator = EncryptedMsrCalculator(inputset)
-        msr = msrcalculator.msr_circuit.encrypt_run_decrypt(sample)
-        # fhe_residues = msrcalculator.msr_circuit.encrypt_run_decrypt(sample)
-        # squared_residues = fhe_residues * fhe_residues
-
-        row_msr = msrcalculator.row_msr_circuit.encrypt_run_decrypt(sample)
-        col_msr = msrcalculator.column_msr_circuit.encrypt_run_decrypt(sample)"""
-
-        # Do without HE
-        sub_data = data[rows][:, cols]
+        #Without HE
+        """   sub_data = data[rows][:, cols]
         data_mean = np.mean(sub_data)
         row_means = np.mean(sub_data, axis=1)
         col_means = np.mean(sub_data, axis=0)
@@ -193,32 +222,26 @@ class ecual(BaseBiclusteringAlgorithm):
 
         msr = np.mean(squared_residues)
         row_msr = np.mean(squared_residues, axis=1)
-        col_msr = np.mean(squared_residues, axis=0)
+        col_msr = np.mean(squared_residues, axis=0)"""
 
         return msr, row_msr, col_msr
 
     def _calculate_msr_col_addition(self, data, rows, cols):
         """Calculate the mean squared residues of the columns for the node addition step."""
-        # Calculate MSR_Col homomorphically
-        sample = data[rows][:, cols]
-        sample = sample.astype('uint8')
+
+        #With FHE
+        """"sample = data[rows][:, cols]
+        sample = sample.astype('uint16')
 
         sample_rows = data[rows]
-        sample_rows = sample_rows.astype('uint8')
+        sample_rows = sample_rows.astype('uint16')
 
-        inputset = [
-            (
-                np.random.randint(0, 5, size=(100, 50)),
-                np.random.randint(0, 5, size=(100, 50))
-            )
-            for _ in range(10)
-        ]
+        msrcolcalculator = EncryptedMsrColAdditionCalculator()
+        squared_residues = msrcolcalculator.squared_residues.encrypt_run_decrypt(sample, sample_rows)
+        col_msr = msrcolcalculator.msr_column_addition_calculator.encrypt_run_decrypt(squared_residues)"""
 
-        msrcolcalculator = EncryptedMsrColAdditionCalculator(inputset)
-        col_msr = msrcolcalculator.msr_column_circuit.encrypt_run_decrypt(sample, sample_rows)
-
-        #Do without HE
-        """sub_data = data[rows][:, cols]
+        #Without FHE
+        sub_data = data[rows][:, cols]
         sub_data_rows = data[rows]
 
         data_mean = np.mean(sub_data)
@@ -228,31 +251,27 @@ class ecual(BaseBiclusteringAlgorithm):
         col_residues = sub_data_rows - row_means[:, np.newaxis] - col_means + data_mean
         col_squared_residues = col_residues * col_residues
         col_msr = np.mean(col_squared_residues, axis=0)
-        """
+
         return col_msr
 
     def _calculate_msr_row_addition(self, data, rows, cols):
         """Calculate the mean squared residues of the rows and of the inverse of the rows for
         the node addition step."""
-        # Calculate MSR homomorphically
-        """ sample = data[rows][:, cols]
-        sample = sample.astype('uint8')
+
+        #With FHE
+        """sample = data[rows][:, cols]
+        sample = sample.astype('uint16')
 
         sample_cols = data[:, cols]
-        sample_cols = sample_cols.astype('uint8')
+        sample_cols = sample_cols.astype('uint16')
 
-        inputset = [
-            (
-                np.random.randint(0, 30, size=(300, 50)),
-                np.random.randint(0, 30, size=(300, 50))
-            )
-            for _ in range(10)
-        ]
+        msrrowcalculator = EncryptedMsrRowAdditionCalculator()
+        row_squared_residues = msrrowcalculator.squared_residues_rows.encrypt_run_decrypt(sample, sample_cols)
+        row_msr = msrrowcalculator.row_msr_calculator.encrypt_run_decrypt(row_squared_residues)
+        inverse_squared_residues = msrrowcalculator.squared_residues_inverse_rows.encrypt_run_decrypt(sample, sample_cols)
+        row_inverse_msr = msrrowcalculator.msr_inverse_calculator.encrypt_run_decrypt(inverse_squared_residues)"""
 
-        msrrowcalculator = EncryptedMsrRowAdditionCalculator(inputset)
-        row_msr = msrrowcalculator.msr_row_circuit.encrypt_run_decrypt(sample, sample_cols)
-        row_inverse_msr = msrrowcalculator.msr_inverse_circuit.encrypt_run_decrypt(sample, sample_cols)"""
-
+        #Without FHE
         sub_data = data[rows][:, cols]
         sub_data_cols = data[:, cols]
         data_mean = np.mean(sub_data)

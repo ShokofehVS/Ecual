@@ -3,7 +3,11 @@ import numpy as np
 
 class EncryptedMsrRowAdditionCalculator:
 
-    configuration = cnp.Configuration(global_p_error=3 / 100_000, verbose=True)
+    configuration = cnp.Configuration(global_p_error=3 / 100_000, verbose=True,
+                                      dump_artifacts_on_unexpected_failures=False,
+                                      enable_unsafe_features=True,
+                                      use_insecure_key_cache=True,
+                                      insecure_key_cache_location=".keys", )
     @cnp.circuit({"data": "encrypted", "data_cols": "encrypted"}, configuration)
     def squared_residues_rows(data: cnp.tensor[cnp.uint16, 10, 5], data_cols: cnp.tensor[cnp.uint16, 10, 5]):
         data_mean = np.sum(data) // data.size

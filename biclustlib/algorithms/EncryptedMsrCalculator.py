@@ -4,9 +4,13 @@ import numpy as np
 
 class EncryptedMsrCalculator():
 
-    configuration = cnp.Configuration(global_p_error=3 / 100_000, verbose=True)
+    configuration = cnp.Configuration(global_p_error=3 / 100_000, verbose=True,
+                                     dump_artifacts_on_unexpected_failures=False,
+                                     enable_unsafe_features=True,
+                                     use_insecure_key_cache=True,
+                                     insecure_key_cache_location=".keys",)
     @cnp.circuit({"data": "encrypted"}, configuration)
-    def squared_residues(data: cnp.tensor[cnp.uint16, 10, 5]):
+    def squared_residues(data: cnp.tensor[cnp.uint16, 2, 2]):
         data_mean = np.sum(data) // data.size
         row_means = np.sum(data, axis=1, keepdims=True) // data.shape[1]
         col_means = np.sum(data, axis=0) // data.shape[0]
@@ -19,16 +23,16 @@ class EncryptedMsrCalculator():
         return squared_residues
 
     @cnp.circuit({"squared_residues": "encrypted"}, configuration)
-    def msr_calculator(squared_residues: cnp.tensor[cnp.uint16, 10, 5]):
+    def msr_calculator(squared_residues: cnp.tensor[cnp.uint16, 2, 2]):
         msr = np.sum(squared_residues) // squared_residues.size
         return msr
 
     @cnp.circuit({"squared_residues": "encrypted"}, configuration)
-    def row_msr_calculator(squared_residues: cnp.tensor[cnp.uint16, 10, 5]):
+    def row_msr_calculator(squared_residues: cnp.tensor[cnp.uint16, 2, 2]):
         row_msr = np.sum(squared_residues, axis=1) // squared_residues.shape[1]
         return row_msr
 
     @cnp.circuit({"squared_residues": "encrypted"}, configuration)
-    def column_msr_calculator(squared_residues: cnp.tensor[cnp.uint16, 10, 5]):
+    def column_msr_calculator(squared_residues: cnp.tensor[cnp.uint16, 2, 2]):
         col_msr = np.sum(squared_residues, axis=0) // squared_residues.shape[0]
         return col_msr
