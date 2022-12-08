@@ -8,3 +8,4 @@
 """
 
 from .load import load_yeast_tavazoie
+from .synthetic import make_const_data

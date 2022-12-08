@@ -9,4 +9,7 @@
 
 from .cca import ChengChurchAlgorithm
 from .ecual import ecual
+from .EncryptedMsrCalculator import EncryptedMsrCalculator
+from .EncryptedMsrColAdditionCalculator import EncryptedMsrColAdditionCalculator
+from .EncryptedMsrRowAdditionCalculator import EncryptedMsrRowAdditionCalculator
 
